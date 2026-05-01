@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Threat Intelligence Dashboard</title>
+    <style>
+        body { background: #0f1923; color: #e1e8ed; font-family: Arial; padding: 20px; }
+        .green { color: #00ff88; } .red { color: #ff4444; }
+        .card { background: #16213e; padding: 20px; border-radius: 10px; margin: 10px 0; }
+        .metric { font-size: 42px; font-weight: bold; }
+        .event { padding: 10px; border-bottom: 1px solid #2a2a4a; display: flex; gap: 10px; align-items: center; }
+        .threat { background: rgba(255,0,0,0.1); }
+        .badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+        .badge-critical { background: #ff4444; color: white; }
+        .badge-danger { background: #ff8800; color: white; }
+        #events { max-height: 500px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🛡️ Threat Intelligence Dashboard</h1>
+    <p>Status: <span style="color:#00ff88;" id="status">Connected</span> | 
+       Threats Loaded: <span id="threatCount" style="color:#ff8800;">0</span></p>
+    
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;">
+        <div class="card">
+            <h3>Total Events</h3>
+            <div class="metric" style="color:#7b2ff7;" id="count">0</div>
+        </div>
+        <div class="card">
+            <h3>Real Threats</h3>
+            <div class="metric" style="color:#ff4444;" id="realThreats">0</div>
+        </div>
+        <div class="card">
+            <h3>Sources Active</h3>
+            <div class="metric" style="color:#00d4ff;">2</div>
+            <small>Phishing.DB + CriminalIP</small>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h3>📡 Live Threat Stream</h3>
+        <div id="events"><p>Waiting for data...</p></div>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:3001/ws");
+        let count = 0;
+        
+        ws.onmessage = function(e) {
+            const msg = JSON.parse(e.data);
+            
+            if (msg.type === "stats") {
+                document.getElementById("realThreats").textContent = msg.totalThreats || 0;
+            }
+            
+            if (msg.type === "event") {
+                count = msg.count;
+                document.getElementById("count").textContent = count;
+                document.getElementById("realThreats").textContent = msg.totalThreats || 0;
+                
+                const ev = msg.data;
+                const div = document.getElementById("events");
+                if (count === 1) div.innerHTML = "";
+                
+                const isThreat = ev.type === "threat_detected";
+                const icon = isThreat ? "🚨" : "📊";
+                
+                div.innerHTML = 
+                    "<div class=\"event" + (isThreat ? " threat" : "") + "\">" +
+                    "<span style=font-size:20px;>" + icon + "</span>" +
+                    "<div>" +
+                    "<b>" + ev.type + "</b>" +
+                    "<div style=color:#8899aa;font-size:12px;>" + (ev.url || ev.domain) + "</div>" +
+                    "</div>" +
+                    (ev.severity ? "<span class=\"badge badge-" + ev.severity.toLowerCase() + "\">" + ev.severity + "</span>" : "") +
+                    (ev.source ? "<span style=color:#00d4ff;font-size:11px;>" + ev.source + "</span>" : "") +
+                    "</div>" + div.innerHTML;
+            }
+        };
+    </script>
+</body>
+</html>
